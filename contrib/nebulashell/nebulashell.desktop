@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NebulaShell
+GenericName=AI Coding Launcher
+Comment=Launch Kilo Desktop via NebulaShell — Fedora · Distrobox · Ollama
+Exec=nebulashell run %U
+Icon=nebulashell
+Terminal=false
+Categories=Development;IDE;
+MimeType=x-scheme-handler/kilo;
+StartupWMClass=kilo-desktop
+Keywords=nebulashell;kilo;ai;code;editor;distrobox;ollama;fedora;
