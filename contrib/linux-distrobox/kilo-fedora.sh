@@ -20,12 +20,14 @@ shift || true
 # ---------------------------------------------------------------------------
 usage() {
   cat <<'EOF'
-Usage: bash kilo-fedora.sh [doctor|run|software-render|ollama-check] [extra flags]
+Usage: bash kilo-fedora.sh [doctor|run|software-render|ollama-check|ollama-setup] [extra flags]
 
   doctor          Read-only check of the existing installation and environment.
   run             Launch Kilo Desktop inside the existing Debian Distrobox.
   software-render Launch with --disable-gpu (workaround for blank/black windows).
   ollama-check    Test connectivity to the local Ollama server and list models.
+  ollama-setup    Write Kilo Desktop config to use your local Ollama models.
+                  Run this once before starting Kilo, with Kilo Desktop closed.
 
 Environment variables:
   KILO_DISTROBOX_CONTAINER  Container name (default: kilo-debian)
@@ -167,6 +169,70 @@ ollama_check() {
 }
 
 # ---------------------------------------------------------------------------
+# ollama-setup: write Kilo Desktop model-preferences.json to use Ollama.
+# Kilo Desktop must NOT be running when this is called.
+ollama_setup() {
+  local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/Kilo Desktop/plugins/kilo-ui"
+  local prefs="$config_dir/model-preferences.json"
+
+  # Require Ollama to be reachable first.
+  if ! command -v curl >/dev/null 2>&1; then
+    printf 'ERROR: curl is required for ollama-setup.\n' >&2
+    exit 1
+  fi
+  local tags
+  tags="$(curl -fs --max-time 3 "${OLLAMA_HOST}/api/tags" 2>/dev/null || true)"
+  if [[ -z "$tags" ]]; then
+    printf 'ERROR: Ollama not reachable at %s.\n' "$OLLAMA_HOST" >&2
+    printf 'Start Ollama first: ollama serve\n' >&2
+    exit 1
+  fi
+
+  # Pick the model to register: prefer KILO_OLLAMA_MODEL, else first available.
+  local model=""
+  if [[ -n "$OLLAMA_MODEL" ]]; then
+    model="$OLLAMA_MODEL"
+  elif command -v jq >/dev/null 2>&1; then
+    model="$(printf '%s' "$tags" | jq -r '.models[0].name // empty' 2>/dev/null || true)"
+  fi
+  if [[ -z "$model" ]]; then
+    printf 'ERROR: No Ollama models found. Run: ollama pull qwen2.5-coder:7b\n' >&2
+    exit 1
+  fi
+
+  printf 'Setting up Kilo Desktop to use Ollama model: %s\n' "$model"
+  printf '  Config: %s\n' "$prefs"
+
+  # Back up existing config.
+  if [[ -f "$prefs" ]]; then
+    cp "$prefs" "${prefs}.bak"
+    printf '  Backed up existing config to %s.bak\n' "$prefs"
+  fi
+
+  mkdir -p "$config_dir"
+
+  # Write the model-preferences.json.
+  # providerID "ollama" is the built-in Kilo Desktop Ollama provider.
+  cat > "$prefs" <<EOF
+{
+	"modelSelections": {},
+	"variantSelections": {},
+	"recentModels": [
+		{
+			"providerID": "ollama",
+			"modelID": "${model}"
+		}
+	],
+	"autoFreeModelsEnabled": true
+}
+EOF
+
+  printf '  Done. Start Kilo Desktop and select Ollama / %s from the model picker.\n' "$model"
+  printf '  If Ollama does not appear, open Kilo settings → Models → Add provider → Ollama\n'
+  printf '  and set the base URL to: %s\n' "$OLLAMA_HOST"
+}
+
+# ---------------------------------------------------------------------------
 case "$MODE" in
   -h|--help|help)
     usage
@@ -203,6 +269,10 @@ case "$MODE" in
 
   ollama-check)
     ollama_check
+    ;;
+
+  ollama-setup)
+    ollama_setup
     ;;
 
   *)
