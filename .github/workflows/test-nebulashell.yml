@@ -1,0 +1,92 @@
+name: NebulaShell CI
+
+on:
+  push:
+    branches: ["feat/nebulashell", "main"]
+    paths:
+      - "contrib/nebulashell/**"
+      - ".github/workflows/test-nebulashell.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "contrib/nebulashell/**"
+      - ".github/workflows/test-nebulashell.yml"
+
+jobs:
+  # ── 1. Bash syntax check ─────────────────────────────────
+  syntax:
+    name: Bash syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: nebulashell.sh
+        run: bash -n contrib/nebulashell/nebulashell.sh
+
+      - name: setup-nebula.sh
+        run: bash -n contrib/nebulashell/setup-nebula.sh
+
+      - name: test-nebulashell.sh
+        run: bash -n contrib/nebulashell/tests/test-nebulashell.sh
+
+  # ── 2. Unit tests ────────────────────────────────────────
+  tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run test suite
+        run: bash contrib/nebulashell/tests/test-nebulashell.sh
+
+  # ── 3. ShellCheck lint ───────────────────────────────────
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint nebulashell.sh
+        run: shellcheck --severity=warning --exclude=SC1091 contrib/nebulashell/nebulashell.sh
+
+      - name: Lint setup-nebula.sh
+        run: shellcheck --severity=warning --exclude=SC1091 contrib/nebulashell/setup-nebula.sh
+
+      - name: Lint test-nebulashell.sh
+        run: shellcheck --severity=warning --exclude=SC1091,SC2154 contrib/nebulashell/tests/test-nebulashell.sh
+
+  # ── 4. setup dry-run ────────────────────────────────────
+  setup-dry-run:
+    name: setup-nebula.sh dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stub distrobox
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          printf '#!/bin/bash\necho "stub-distrobox: %s" "$*"\n' > "$HOME/.local/bin/distrobox"
+          chmod +x "$HOME/.local/bin/distrobox"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Dry-run setup
+        run: bash contrib/nebulashell/setup-nebula.sh --dry-run
+
+  # ── 5. SVG logo validation ───────────────────────────────
+  logo:
+    name: SVG logo check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate SVG is well-formed XML
+        run: |
+          sudo apt-get install -y libxml2-utils
+          xmllint --noout contrib/nebulashell/nebulashell-logo.svg
+          echo "SVG is valid XML"
+
+      - name: Check logo contains NebulaShell text
+        run: grep -q "NEBULA" contrib/nebulashell/nebulashell-logo.svg && echo "Logo text OK"
