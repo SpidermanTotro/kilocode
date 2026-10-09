@@ -1,0 +1,87 @@
+name: Test Fedora Distrobox Scripts
+
+on:
+  push:
+    branches: ["fix/fedora-distrobox-desktop", "main"]
+    paths:
+      - "contrib/linux-distrobox/**"
+      - ".github/workflows/test-fedora-scripts.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "contrib/linux-distrobox/**"
+      - ".github/workflows/test-fedora-scripts.yml"
+
+jobs:
+  bash-syntax:
+    name: Bash syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check kilo-fedora.sh syntax
+        run: bash -n contrib/linux-distrobox/kilo-fedora.sh
+
+      - name: Check setup-container.sh syntax
+        run: bash -n contrib/linux-distrobox/setup-container.sh
+
+      - name: Check test-helper.sh syntax
+        run: bash -n contrib/linux-distrobox/tests/test-helper.sh
+
+  unit-tests:
+    name: Unit tests (mocked — no Kilo or Ollama required)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run test-helper.sh
+        run: bash contrib/linux-distrobox/tests/test-helper.sh
+
+  shellcheck:
+    name: ShellCheck lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint kilo-fedora.sh
+        run: >
+          shellcheck
+          --severity=warning
+          --exclude=SC1091
+          contrib/linux-distrobox/kilo-fedora.sh
+
+      - name: Lint setup-container.sh
+        run: >
+          shellcheck
+          --severity=warning
+          --exclude=SC1091
+          contrib/linux-distrobox/setup-container.sh
+
+      - name: Lint test-helper.sh
+        run: >
+          shellcheck
+          --severity=warning
+          --exclude=SC1091,SC2154
+          contrib/linux-distrobox/tests/test-helper.sh
+
+  dry-run-setup:
+    name: setup-container.sh dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install distrobox stub
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          cat > "$HOME/.local/bin/distrobox" <<'EOF'
+          #!/bin/bash
+          echo "distrobox-stub: $*"
+          EOF
+          chmod +x "$HOME/.local/bin/distrobox"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Run setup-container.sh --dry-run
+        run: bash contrib/linux-distrobox/setup-container.sh --dry-run

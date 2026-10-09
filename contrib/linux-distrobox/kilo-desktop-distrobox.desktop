@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Kilo Desktop (Distrobox)
+GenericName=AI Code Editor
+Comment=Launch Kilo Desktop from Fedora via the kilo-debian Distrobox container
+Exec=kilo-fedora run %U
+Icon=kilo-desktop
+Terminal=false
+Categories=Development;IDE;
+MimeType=x-scheme-handler/kilo;
+StartupWMClass=kilo-desktop
+Keywords=kilo;code;ai;editor;distrobox;
